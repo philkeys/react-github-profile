@@ -9,6 +9,20 @@ function Query({query, variables, children, normalize = data => data}) {
     (state, newState) => ({...state, ...newState}),
     {loaded: false, fetching: false, data: null, error: null},
   )
+
+  const mountedRef = useRef(false)
+  // Note - We only want to run this when the component is mounted, and when the component is unmounted
+  useEffect(() => {
+    // useEffect is called when mounted (and whenever component is updated)
+    mountedRef.current = true
+    // Cleanup function
+    return () => (mountedRef.current = false)
+  }, [])
+  // Note - Above we pass in the input Array with NO INPUTS, thus they will never change and it will only be run ONCE
+
+  // Using the above mountedRef, we'll determine when we should update State
+  const safeSetState = (...args) => mountedRef.current && setState(...args)
+
   // Note - useEffect is called every time our component is updated.
   useEffect(() => {
     if (isEqual(previousInputs.current, [query, variables])) {
@@ -18,7 +32,7 @@ function Query({query, variables, children, normalize = data => data}) {
     client
       .request(query, variables)
       .then(res =>
-        setState({
+        safeSetState({
           data: normalize(res),
           error: null,
           loaded: true,
@@ -26,7 +40,7 @@ function Query({query, variables, children, normalize = data => data}) {
         }),
       )
       .catch(error =>
-        setState({
+        safeSetState({
           error,
           data: null,
           loaded: false,
